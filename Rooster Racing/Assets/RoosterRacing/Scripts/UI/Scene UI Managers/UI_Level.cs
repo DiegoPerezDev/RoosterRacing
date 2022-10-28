@@ -8,21 +8,21 @@ using UnityEngine;
  */
 public class UI_Level : UI_MainMenuManager
 {
-    [SerializeField] private GameObject HUD, winCanvas, loseCanvas;
+    [SerializeField] private GameObject HUD;
     //[HideInInspector] public enum UI_AudioNames { lose, pause, unPause }
     //public static AudioClip[] UI_Clips = new AudioClip[Enum.GetNames(typeof(UI_AudioNames)).Length];
 
     public override void OnEnable()
     {
         InputsManager.OnMenuBackInput += CheckForMenuClosing;
-        GameManager.OnLoseGame        += Lose;
-        GameManager.OnWinGame         += Win;
+        GameManager.OnLoseGame        += CloseHUD;
+        GameManager.OnWinGame         += CloseHUD;
     }
     public override void OnDisable()
     {
         InputsManager.OnMenuBackInput -= CheckForMenuClosing;
-        GameManager.OnLoseGame        -= Lose;
-        GameManager.OnWinGame         -= Win;
+        GameManager.OnLoseGame        -= CloseHUD;
+        GameManager.OnWinGame         -= CloseHUD;
     }
     void Start()
     {
@@ -47,15 +47,6 @@ public class UI_Level : UI_MainMenuManager
             base.CheckForMenuClosing();
     }
 
-    private void Lose()
-    {
-        OpenMenu(loseCanvas, true);
-        CloseMenu(HUD);
-    }
-    private void Win()
-    {
-        OpenMenu(winCanvas, true);
-        CloseMenu(HUD);
-    }
+    private void CloseHUD() => CloseMenu(HUD);
 
 }

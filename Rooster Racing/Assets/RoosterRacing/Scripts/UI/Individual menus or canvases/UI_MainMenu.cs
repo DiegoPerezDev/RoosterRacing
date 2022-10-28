@@ -29,6 +29,13 @@ public class UI_MainMenu : UI_MenuManager
                 CloseMenu(false);
                 GameManager.OnLevelStart?.Invoke();
                 GameManager.OnPauseByTime?.Invoke(false);
+                var player = GameObject.FindGameObjectWithTag("Player");
+                if(player)
+                {
+                    var playerMoveCode = player.GetComponent<CH_Movement>();
+                    if (playerMoveCode)
+                        playerMoveCode.enabled = true;
+                }
                 break;
 
             case "tutorial":

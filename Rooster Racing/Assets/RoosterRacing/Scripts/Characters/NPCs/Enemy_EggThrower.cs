@@ -3,34 +3,24 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /*  INSTRUCTIONS:
- *  Last full check: V0.0.2
- *  This class manages a bot that use the power of throwing eggs every certine times.
+ *  Last full check: V0.3
+ *  This class manages a bot that use the power of throwing eggs every certine time.
  *  This bot is for testing purposes only.
  */
+[RequireComponent(typeof(CH_Powers))]
 public class Enemy_EggThrower : MonoBehaviour
 {
     [Range(1,5)] [SerializeField] private int delay = 3;
-    private CH_Powers PowersCode;
+    private CH_Powers powersCode;
 
-
-    void Awake()
-    {
-        //find the components needed
-        PowersCode = GetComponent<CH_Powers>();
-
-        //check if i got the components, else stop the game before any bug start
-        if(PowersCode == null)
-        {
-            print("A gameObject was not found in the code " + this.name + "!");
-            Debug.Break();
-        }
-    }
+    void Awake() => powersCode = GetComponent<CH_Powers>();
 
     void Start()
     {
-        //prepare this bot so it can use the EggThrow power constantly
-        PowersCode.unlimitedPower = true;
-        PowersCode.currentPower = CH_Powers.Powers.eggThrow;
+        powersCode.unlimitedPower = true;
+        powersCode.currentPower = CH_Powers.Powers.eggThrow;
+        if (delay < 1) 
+            delay = 1;
         StartCoroutine(ThrowerBehaviour());
     }
 
@@ -38,7 +28,7 @@ public class Enemy_EggThrower : MonoBehaviour
     private IEnumerator ThrowerBehaviour()
     {
         yield return new WaitForSeconds(delay);
-        PowersCode.powerTrigger = true;
+        powersCode.ActivatePower();
         StartCoroutine(ThrowerBehaviour());
     }
 }

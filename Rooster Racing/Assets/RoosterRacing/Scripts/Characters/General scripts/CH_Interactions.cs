@@ -7,35 +7,24 @@ using System;
  *  Last full check: V0.0.2
  *  This class manages the player interaction with other objects in the game.
  */
+[RequireComponent(typeof(Rigidbody))]
+[RequireComponent(typeof(CapsuleCollider))]
 public class CH_Interactions : MonoBehaviour
 {
     //General fields
-    private enum Tags { PowerUp, EggSet, EggThrowed, Hole, Teleporter, TackleL, TackleR, None}
-    private Tags otherTag;
+    private enum Tags { Untagged, none, PowerUp, EggSet, EggThrowed, Hole, Teleporter, TackleL, TackleR, Wall, RaceEnd}
+    private bool invulnerable;
+    private bool isPlayer;
 
-    //Power Box
-    private static GameObject powerBoxPref;
-    private static readonly float powerBoxRespawnDelay = 4f;
-
-    //Egg powers fields
-    private float eggStunDuration = 1.5f;
-    private bool stunned;
-
-    //Tackle power fields
+    //Powers
+    private GameObject powerBoxPref;
     private enum Sides { left, right }
-    [SerializeField] private float pushForce = 1000f;
+    private readonly float eggStunDuration = 1.5f;
 
-    //Holes
-    [SerializeField] private float holeDelay = 1f;
-    private bool falling;
-    private GameObject holesContainer;
-    private GameObject[] hole = new GameObject[1];
-    private Vector3[] afterHolePos = new Vector3[1];
-    private float PlayerToAfterHole;
-
-    //Teleport
-    private Vector3 startPos;
-    private Quaternion startRot;
+    //Obstacles
+    private List<GameObject> holesGO, wallsGO;
+    private List<Vector3> afterHolePos, afterWallPos;
+    private IEnumerator ObstacleCoroutine;
 
     //General components fields
     private Rigidbody rb;
@@ -43,135 +32,118 @@ public class CH_Interactions : MonoBehaviour
     private CH_Movement moveCode;
     private CH_Powers powerCode;
     private PlayerInputs playerInputs;
+    private CH_Data playerData;
+
 
     void Awake()
     {
         //find the components needed
-        moveCode = GetComponent<CH_Movement>();
-        powerCode = GetComponent<CH_Powers>();
-        rb = GetComponent<Rigidbody>();
-        playerColl = GetComponent<CapsuleCollider>();
+        rb           = GetComponent<Rigidbody>();
+        playerColl   = GetComponent<CapsuleCollider>();
         playerInputs = GetComponent<PlayerInputs>();
-        startPos = transform.position;
-        startRot = transform.rotation;
+        moveCode     = GetComponent<CH_Movement>();
+        powerCode    = GetComponent<CH_Powers>();
+        playerData   = GetComponent<CH_Data>();
         powerBoxPref = Resources.Load<GameObject>("Prefabs/InteractiveObjects/PowerBox");
         if(!powerBoxPref)
             print("No power box prefab found!");
-        SetHoles();
+        isPlayer = CompareTag("Player");
+    }
+
+    void Start()
+    {
+        SetHolesTpPos();
+        SetWallsTpPos();
     }
 
 
-    //Main interactions functions
-    #region Main functions
-
     private void OnTriggerEnter(Collider other) 
     {
-        //Get the tag of the object collided, if its any of the enum then continue
-        if(!TagConfirmed(other.gameObject.tag))
-            return;
+        Tags otherTag = ParseStringToEnumTag(other.gameObject.tag);
 
-        //Check the guard condition of the transition intented, if its true then continue (SEE DOCUMENTATION)
-        if(!GuardConfirmed())
-            return;
-
-        //Interactions (SEE DOCUMENTATION)
         switch(otherTag)
         {
             case Tags.EggSet:
-                Destroy(other.gameObject);
-                StartCoroutine(Stun(eggStunDuration));
-            break;
+                if (invulnerable)
+                    break;
+                ObstacleCoroutine = Stun(eggStunDuration);
+                StartCoroutine(ObstacleCoroutine);
+                break;
 
             case Tags.EggThrowed:
+                if (invulnerable)
+                    break;
                 Destroy(other.gameObject);
-                StartCoroutine(Stun(eggStunDuration));
-            break;
+                ObstacleCoroutine = Stun(eggStunDuration);
+                StartCoroutine(ObstacleCoroutine);
+                break;
 
             case Tags.TackleL:
                 Pushed(Sides.left);
-            break;
+                break;
 
             case Tags.TackleR:
                 Pushed(Sides.right);
-            break;
+                break;
         
             case Tags.PowerUp:
                 CatchPowerBox(other.gameObject);
-            break;
+                break;
 
             case Tags.Hole:
-                try
-                {
-                    FallInHole(other.gameObject);
-                } 
-                catch 
-                {
-                    print("can't tp to the afterHole position");
-                    Debug.Break();
-                }
-            break;
+                if(invulnerable)
+                    break;
+                FallInHole(other.gameObject);
+                break;
 
             case Tags.Teleporter:
-                transform.position = startPos;
-                transform.rotation = startRot;
-                moveCode.pathFeatures.WaitingForPathRestart = false;
+                moveCode.RestartPos();
+                break;
+
+            case Tags.RaceEnd:
+                // Tell the race manager that we ended the race, store that data in the final score list
+                RaceManager.playersFinalScoresAscending.Add(playerData.playerNumber);
+
+                // End game if the player is the one finishing the race.
+                if (CompareTag("Player"))
+                {
+                    var finalPlace = RaceManager.playersFinalScoresAscending.Count;
+                    moveCode.Stop();
+                    moveCode.enabled = false;
+                    if (finalPlace == 1)
+                        GameManager.OnWinGame?.Invoke();
+                    else
+                        GameManager.OnLoseGame?.Invoke();
+                }
+                else
+                    Destroy(gameObject);
                 break;
         }
     }
 
-    //Try to get the tag of the object collided
-    private bool TagConfirmed(string tag)
+    private void OnCollisionEnter(Collision collision)
     {
-        try
-        {  
-            otherTag = (Tags)Enum.Parse(typeof(Tags), tag);
-        }
-        catch
-        {  
-            return false; 
-        }
-        return true; 
-    }
+        Tags otherTag = ParseStringToEnumTag(collision.gameObject.tag);
 
-    //Check the guard condition of the transition intented
-    private bool GuardConfirmed()
-    {
-        switch(otherTag)
+        if(otherTag == Tags.Wall)
         {
-            case Tags.EggSet:
-                if(!stunned)
-                    return true;
-            break;
-
-            case Tags.EggThrowed:
-                if(!stunned)
-                    return true;
-            break;
-
-            case Tags.TackleL:
-                return true;
-
-            case Tags.TackleR:
-                return true;
-
-            case Tags.PowerUp:
-                    return true;
-
-            case Tags.Hole:
-                if(!falling)
-                    return true;
-            break;
-
-            case Tags.Teleporter:
-                return true;
-        }
-
-        //if the guard did not match the condition, guard wasn't confirmed
-        return false;
-
+            if (invulnerable)
+                return;
+            WallHit(collision.gameObject);
+        }   
     }
 
-    #endregion
+    private Tags ParseStringToEnumTag(string tag)
+    {
+        Tags enumTag;
+        try{
+            enumTag = (Tags)Enum.Parse(typeof(Tags), tag);
+        }
+        catch{
+            enumTag = Tags.none; 
+        }
+        return enumTag; 
+    }
 
 
     #region Powers interactions functions
@@ -180,87 +152,92 @@ public class CH_Interactions : MonoBehaviour
     private IEnumerator Stun(float stunDuration)
     {
         //freeze the player physics
-        stunned = true;
+        invulnerable = true;
         rb.constraints = RigidbodyConstraints.FreezeAll;
 
         //wait a moment and enable the player physics
         yield return new WaitForSecondsRealtime(stunDuration);
         rb.constraints = RigidbodyConstraints.None;
         rb.constraints = RigidbodyConstraints.FreezeRotation;
-        stunned = false;
+        invulnerable = false;
     }
 
     //this is the push received from another player tackling(from his 'tackle collider')
     private void Pushed(Sides side)
     {
-        if(side == Sides.right)
-        {
+        float pushForce = 1000f;
+        if (side == Sides.right)
             rb.AddForce(transform.right * pushForce, ForceMode.Impulse);
-        }
         else
-        {
             rb.AddForce(-transform.right * pushForce, ForceMode.Impulse);
-        }
     }
 
     #endregion
 
-    #region Hole interactions functions
+    #region Obstacles interactions functions
 
-    //Look for all the holes in the scene. The holes must use the correct nomenclature
-    private void SetHoles()
+    private void SetHolesTpPos()
     {
-        holesContainer = GameObject.Find("LevelDev/Holes_");
+        holesGO = new List<GameObject>();
+        afterHolePos = new List<Vector3>();
+        var container = GameObject.Find("InteractiveObjects/Holes");
+        if (container == null)
+            return;
 
-        //If there is no holes in the scene then just skip this script
-        if(holesContainer == null) return;
-
-        //I used the double foreach to find and specific grandchild because the function 'FindChild()' also counts the self object
-        int _ = 0;
-        foreach(Transform childs in holesContainer.transform)
+        foreach(Transform child in container.transform)
         {
-            foreach(Transform tfs in childs)
-            {
-                afterHolePos[_] = tfs.position;
-            }
-            Array.Resize(ref afterHolePos, afterHolePos.Length + 1);
-            hole[_] = childs.gameObject;
-            Array.Resize(ref hole, hole.Length + 1);
-            ++_;
+            afterHolePos.Add(child.GetChild(0).transform.position);
+            holesGO.Add(child.gameObject);
         }
-        if(_ > 0)
-        {
-            Array.Resize(ref hole, hole.Length - 1);
-            Array.Resize(ref afterHolePos, afterHolePos.Length - 1);
-        }
-        //print("Number of holes found : " + _);
     }
 
-    //disable the player move and prepare the transition to the afterHole position
+    private void SetWallsTpPos()
+    {
+        wallsGO = new List<GameObject>();
+        afterWallPos = new List<Vector3>();
+        var container = GameObject.Find("InteractiveObjects/Walls");
+        if (container == null)
+            return;
+
+        foreach (Transform child in container.transform)
+        {
+            afterWallPos.Add(child.GetChild(0).transform.position);
+            wallsGO.Add(child.gameObject);
+        }
+        var wallHalfHeigh = 0f;
+        if (wallsGO.Count > 0)
+            wallHalfHeigh = wallsGO[0].transform.localScale.y / 2;
+        for (int i = 0; i < afterWallPos.Count; i++)
+            afterWallPos[i] -= new Vector3(0, wallHalfHeigh, 0);
+    }
+
     private void FallInHole(GameObject holeGO)
     {
-        falling = true;
+        //Look for the position to teleport the player after the hole fall.
+        var index = holesGO.FindIndex(x => x.Equals(holeGO));
+        Vector3 TeleportPos = afterHolePos[index];
+        TriggerObstacle(TeleportPos, true);
+    }
+
+    private void WallHit(GameObject wallGO)
+    {
+        //Look for the position to teleport the player after the wall hit.
+        var index = wallsGO.FindIndex(x => x.Equals(wallGO));
+        Vector3 TeleportPos = afterWallPos[index];
+        TriggerObstacle(TeleportPos, true);
+    }
+
+    private void TriggerObstacle(Vector3 teleportPos, bool withDelay)
+    {
+        invulnerable = true;
 
         //Don't let the player move or obstruct with something in the transition
         EnableBody(false);
 
-        //Look for the position to teleport the player after the hole stun.
-        Vector3 TeleportPos = Vector3.zero;
-        for (int i = 0; i < hole.Length; ++i)
-        {
-            if(holeGO == hole[i])
-            {
-                TeleportPos = afterHolePos[i];
-                break;
-            }
-        }
-
-        //Transport the player to the position after the hole
-        PlayerToAfterHole = Vector3.Distance(rb.transform.position, TeleportPos);
-        StartCoroutine(HoleTransition(TeleportPos));
+        //Transport the player to the desired position
+        StartCoroutine(AfterObstacleTransition(teleportPos, withDelay));
     }
 
-    //disable gravity and script movements
     private void EnableBody(bool enable)
     {
         if(!enable)
@@ -268,31 +245,34 @@ public class CH_Interactions : MonoBehaviour
         playerColl.enabled = enable;
         rb.useGravity = enable;
         moveCode.enabled = enable;
-        playerInputs.enabled = enable;
+        if(isPlayer)
+            playerInputs.enabled = enable;
     }
 
-    //Move the player smoothly to the position after the hole
-    private IEnumerator HoleTransition(Vector3 TeleportPos)
+    /// <summary> Move the player smoothly to the desired position </summary>
+    private IEnumerator AfterObstacleTransition(Vector3 TeleportPos, bool withDelay)
     {
-        //wait a moment falling before starting the transition
-        yield return new WaitForSeconds(holeDelay);
-        
-        //transition of the player
-        //I haven't test the performance of this coroutine, it might be laggy
-        while(PlayerToAfterHole > 0.3f || PlayerToAfterHole < -0.3f)
-        {
-            //update player pos relative to the after hole position
-            PlayerToAfterHole = Vector3.Distance(rb.transform.position, TeleportPos);
+        //wait a moment before starting the transition
+        if(withDelay)
+            yield return new WaitForSeconds(0.3f);
 
-            //go to the position after the hole fall smoothly
+        //transition of the player
+        float PlayerToNextPos = Vector3.Distance(rb.transform.position, TeleportPos);
+        while (PlayerToNextPos > 0.3f || PlayerToNextPos < -0.3f)
+        {
+            //update player pos relative to the next desired position
+            PlayerToNextPos = Vector3.Distance(rb.transform.position, TeleportPos);
+
+            //go to the next desired positionsmoothly
             rb.transform.position = Vector3.Lerp(rb.transform.position, TeleportPos, 0.2f);
             yield return new WaitForFixedUpdate();
         }
 
-        //Stop all the Hole debuffs so the player can continue moving
-        falling = false;
+        //Stop all the debuffs so the player can continue moving
+        invulnerable = false;
         EnableBody(true);
     }
+
 
     #endregion
 
@@ -309,17 +289,12 @@ public class CH_Interactions : MonoBehaviour
             return;
 
         //gather a new random power
-        powerCode.currentPower = (CH_Powers.Powers)UnityEngine.Random.Range(0, Enum.GetNames(typeof(CH_Powers.Powers)).Length);
-
-        //if got the tackle power, activate the player detectors needed for the tackle power
-        if(powerCode.currentPower == CH_Powers.Powers.tackle)
-        {
-            powerCode.playerDetectors.SetActive(true);
-        }
+        powerCode.OnPowerAcquired?.Invoke();
     }
 
     private IEnumerator PowerBoxRespawn(GameObject Box)
     {
+        float powerBoxRespawnDelay = 4f;
         Destroy(Box);
         Vector3 BoxPos = Box.transform.position;
         yield return new WaitForSeconds(powerBoxRespawnDelay);

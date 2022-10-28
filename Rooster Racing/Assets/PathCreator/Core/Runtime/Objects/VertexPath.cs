@@ -41,24 +41,6 @@ namespace PathCreation {
 
         #endregion
 
-        #region Mod fields for rooster racing
-
-        public bool showLogMessages;
-        private readonly bool pathSegmentated;
-        private readonly int minimumSegmentsForSegmentation = 4;
-        private readonly int pointsPerSegment = 40;
-        private readonly int segmentsAmount;
-
-        public struct CharacterInPathFeatures
-        {
-            public int AtSegmentPartNum { get; set; }
-            public int PointIndexB { get; set; }
-            public int PointIndexA { get; set; }
-            public bool WaitingForPathRestart { get; set; }
-        }
-
-        #endregion
-
         #region Constructors
 
         /// <summary> Splits bezier path into array of vertices along the path.</summary>
@@ -379,6 +361,22 @@ namespace PathCreation {
 
         #region Mods Rooster racing
 
+        // Note: The constructor is also modified at the end of its body.
+
+        public bool showLogMessages;
+        private readonly bool pathSegmentated;
+        private readonly int minimumSegmentsForSegmentation = 4;
+        private readonly int pointsPerSegment = 40;
+        private readonly int segmentsAmount;
+
+        public struct CharacterInPathFeatures
+        {
+            public int AtSegmentPartNum { get; set; }
+            public int PointIndexB { get; set; }
+            public int PointIndexA { get; set; }
+            public bool WaitingForPathRestart { get; set; }
+        }
+
         /// Finds the 'time' (0=start of path, 1=end of path) along the path that is closest to the given point
         public float GetClosestTimeOnPath(Vector3 worldPoint, ref CharacterInPathFeatures characterAtSegmentPartNum)
         {
@@ -392,7 +390,7 @@ namespace PathCreation {
         }
 
         /// <summary>
-        /// This overload make gives the closest point on the path but only searching the point in a segment part and not through all of the path. 
+        /// This overload gives the closest point on the path but only searching the point in a segment part and not through all of the path. 
         /// </summary>
         TimeOnPathData CalculateClosestPointOnPathData(Vector3 worldPoint, ref CharacterInPathFeatures characterAtSegmentPart)
         {
@@ -430,7 +428,7 @@ namespace PathCreation {
                     closestSegmentIndexA = indexA;
                     closestSegmentIndexB = indexB;
                 }
-                if (CheckSegmentPartSurpass(ref characterAtSegmentPart, closestSegmentIndexB))
+                if (CheckSegmentSurpass(ref characterAtSegmentPart, closestSegmentIndexB))
                     break;
             }
             float closestSegmentLength = (GetPoint(closestSegmentIndexA) - GetPoint(closestSegmentIndexB)).magnitude;
@@ -438,42 +436,46 @@ namespace PathCreation {
             return new TimeOnPathData(closestSegmentIndexA, closestSegmentIndexB, t);
         }
 
-        private bool CheckSegmentPartSurpass(ref CharacterInPathFeatures characterAtSegmentPart, int closestSegmentIndexB)
+        /// <summary>
+        /// Check if the character already reached the next segment part of the path and set it if so.
+        /// </summary>
+        /// <param name="characterAtSegmentPart"></param>
+        /// <param name="closestSegmentIndexB"></param>
+        /// <returns></returns>
+        private bool CheckSegmentSurpass(ref CharacterInPathFeatures characterPathFeatures, int closestSegmentIndexB)
         {
             // Check if the player surpass the last point when in last segment
-            if (characterAtSegmentPart.AtSegmentPartNum >= segmentsAmount)
+            if (characterPathFeatures.AtSegmentPartNum >= segmentsAmount)
             {
                 // if ((closestSegmentIndexB >= localPoints.Length - 1))
                 if ((closestSegmentIndexB <= pointsPerSegment))
                 {
-                    //if (!isClosedLoop)
-                    //    characterAtSegmentPart.WaitingForPathRestart = true;
-                    characterAtSegmentPart.AtSegmentPartNum = 1;
-                    characterAtSegmentPart.PointIndexA = 0;
-                    characterAtSegmentPart.PointIndexB = pointsPerSegment;
+                    characterPathFeatures.AtSegmentPartNum = 1;
+                    characterPathFeatures.PointIndexA = 0;
+                    characterPathFeatures.PointIndexB = pointsPerSegment;
                     if (showLogMessages)
                     {
                         Debug.Log("path restarted");
-                        Debug.Log($" AtSegmentPartNum: {characterAtSegmentPart.AtSegmentPartNum}/{segmentsAmount}");
-                        Debug.Log($" PointIndexA: {characterAtSegmentPart.PointIndexA}/{localPoints.Length - 1}, PointIndexB: {characterAtSegmentPart.PointIndexB}/{localPoints.Length - 1}");
+                        Debug.Log($" AtSegmentPartNum: {characterPathFeatures.AtSegmentPartNum}/{segmentsAmount}");
+                        Debug.Log($" PointIndexA: {characterPathFeatures.PointIndexA}/{localPoints.Length - 1}, PointIndexB: {characterPathFeatures.PointIndexB}/{localPoints.Length - 1}");
                     }
                     return true;
                 }
             }
 
             // Check if player already in the next segment
-            else if (closestSegmentIndexB > characterAtSegmentPart.PointIndexB)
+            else if (closestSegmentIndexB > characterPathFeatures.PointIndexB)
             {
-                characterAtSegmentPart.AtSegmentPartNum++;
-                characterAtSegmentPart.PointIndexA = (characterAtSegmentPart.AtSegmentPartNum * pointsPerSegment) - pointsPerSegment;
-                if (characterAtSegmentPart.AtSegmentPartNum >= segmentsAmount)
-                    characterAtSegmentPart.PointIndexB = localPoints.Length - 1;
+                characterPathFeatures.AtSegmentPartNum++;
+                characterPathFeatures.PointIndexA = (characterPathFeatures.AtSegmentPartNum * pointsPerSegment) - pointsPerSegment;
+                if (characterPathFeatures.AtSegmentPartNum >= segmentsAmount)
+                    characterPathFeatures.PointIndexB = localPoints.Length - 1;
                 else
-                    characterAtSegmentPart.PointIndexB = characterAtSegmentPart.PointIndexA + pointsPerSegment;
+                    characterPathFeatures.PointIndexB = characterPathFeatures.PointIndexA + pointsPerSegment;
                 if (showLogMessages)
                 {
-                    Debug.Log($"AtSegmentPartNum: {characterAtSegmentPart.AtSegmentPartNum}/{segmentsAmount}");
-                    Debug.Log($"PointIndexA: {characterAtSegmentPart.PointIndexA}/{localPoints.Length - 1}, PointIndexB: {characterAtSegmentPart.PointIndexB}/{localPoints.Length - 1}");
+                    Debug.Log($"AtSegmentPartNum: {characterPathFeatures.AtSegmentPartNum}/{segmentsAmount}");
+                    Debug.Log($"PointIndexA: {characterPathFeatures.PointIndexA}/{localPoints.Length - 1}, PointIndexB: {characterPathFeatures.PointIndexB}/{localPoints.Length - 1}");
                 }
                 return true;
             }
@@ -482,13 +484,19 @@ namespace PathCreation {
             return false;
         }
 
-        public void SetCharacterInPathFeatures(ref CharacterInPathFeatures characterAtSegmentPart, Vector3 characterCurrentPos)
+        /// <summary>
+        /// <para> Get the selected character position on the path to know in which segment of it it's placed. </para>
+        /// <para> Needed when starting the movement on path or when the character teleported to other segment part of the path. </para>
+        /// </summary>
+        /// <param name="characterPathFeatures"></param>
+        /// <param name="characterCurrentPos"></param>
+        public void SetCharacterInPath(ref CharacterInPathFeatures characterPathFeatures, Vector3 characterCurrentPos)
         {
             if (!pathSegmentated)
                 return;
 
-            characterAtSegmentPart = new CharacterInPathFeatures();
-            var playerAtPoint = GetPlayerCurrentPoint(characterCurrentPos);
+            characterPathFeatures = new CharacterInPathFeatures();
+            var playerAtPoint = GetPlayerCurrentPointOnPath(characterCurrentPos);
             int playerAtSegment = 1;
             for (int i = 1; i < segmentsAmount + 1; i++)
             {
@@ -498,18 +506,18 @@ namespace PathCreation {
                     break;
             }
             
-            characterAtSegmentPart.AtSegmentPartNum = playerAtSegment;
-            characterAtSegmentPart.PointIndexA = (playerAtSegment - 1) * pointsPerSegment;
-            characterAtSegmentPart.PointIndexB = characterAtSegmentPart.PointIndexA + pointsPerSegment;
+            characterPathFeatures.AtSegmentPartNum = playerAtSegment;
+            characterPathFeatures.PointIndexA = (playerAtSegment - 1) * pointsPerSegment;
+            characterPathFeatures.PointIndexB = characterPathFeatures.PointIndexA + pointsPerSegment;
             if (showLogMessages)
             {
-                Debug.Log($"AtSegmentPartNum: {characterAtSegmentPart.AtSegmentPartNum}/{segmentsAmount}");
-                Debug.Log($"PointIndexA: {characterAtSegmentPart.PointIndexA}/{localPoints.Length - 1}, PointIndexB: {characterAtSegmentPart.PointIndexB}/{localPoints.Length - 1}");
+                Debug.Log($"AtSegmentPartNum: {characterPathFeatures.AtSegmentPartNum}/{segmentsAmount}");
+                Debug.Log($"PointIndexA: {characterPathFeatures.PointIndexA}/{localPoints.Length - 1}, PointIndexB: {characterPathFeatures.PointIndexB}/{localPoints.Length - 1}");
                 Debug.Log($"player started at point: {playerAtPoint}");
             }
         }
 
-        private int GetPlayerCurrentPoint(Vector3 worldPoint)
+        private int GetPlayerCurrentPointOnPath(Vector3 worldPoint)
         {
             float minSqrDst = float.MaxValue;
             int closestSegmentIndexA = 0;

@@ -9,9 +9,9 @@ EditorBuildSettings:
     path: Assets/RoosterRacing/Scenes/LevelSelection.unity
     guid: 636760fb3e6db5b4e8b4fb93689b7944
   - enabled: 1
-    path: Assets/RoosterRacing/Scenes/RunnerMode.unity
-    guid: c9ace78f00f20294cb68bbeee964f571
-  - enabled: 1
     path: Assets/RoosterRacing/Scenes/TestMode.unity
     guid: 6790a884937784248b606299ec6686a5
+  - enabled: 1
+    path: Assets/RoosterRacing/Scenes/RunnerMode.unity
+    guid: c9ace78f00f20294cb68bbeee964f571
   m_configObjects: {}

@@ -14,18 +14,28 @@ public class UI_HUD : MonoBehaviour
 {
     // HUD fields
     [Tooltip("Only changable before play-mode")]
-    [SerializeField] private bool showFPS, showCurrentPower, showPowerSelection, showRotationMode, showAccelerationMode;
-    [SerializeField] private TextMeshProUGUI fpsTMP;
+    [SerializeField] private bool showFPS, showCurrentPower, showPowerSelection, showRotationMode, showAccelerationMode, showRacePlacing;
+
+    // Power fields
     [SerializeField] private TextMeshProUGUI currentPowerTMP;
     [SerializeField] private ToggleGroup powerSelectionToggleGroup;
     [SerializeField] private Toggle unlimiterPowerToggle;
+    private CH_Powers powersCode;
+
+    // Race placing fields
+    [SerializeField] private GameObject placingPanelGO;
+    private List<TextMeshProUGUI> placingText;
+    private readonly Color regularTextColor = new Color(10f/255f, 10f / 255f, 10f / 255f);
+    private readonly Color playerTextColor = new Color(230f / 255f, 220f / 255f, 80f / 255f);
+
+    // Displacement fields
     [SerializeField] private Toggle autoRotationToggle, manualRotationToggle;
     [SerializeField] private Toggle autoAccelerationToggle, manualAccelerationToggle;
-    private int fps;
-
-    // Player fields
-    private CH_Powers powersCode;
     private CH_Movement movementCode;
+
+    // FPS fields
+    [SerializeField] private TextMeshProUGUI fpsTMP;
+    private int fps;
 
 
     // -- -- -- MONOBEHAVIOUR -- -- -- --
@@ -33,25 +43,26 @@ public class UI_HUD : MonoBehaviour
     {
         if (showCurrentPower)
         {
-            CH_Powers.OnPowerAcquired += ShowPowerText;
-            CH_Powers.OnPowerUsed     += PowerUsed;
+            CH_Powers.OnPowerAcquiredByPlayer += ShowPowerText;
+            CH_Powers.OnPowerUsedByPlayer += PowerUsed;
         }
         if (showPowerSelection)
-            CH_Powers.OnPowerUsed += DeselectPowerSelectionToggles;
+            CH_Powers.OnPowerUsedByPlayer += DeselectPowerSelectionToggles;
     }
     void OnDisable()
     {
         if (showCurrentPower)
         {
-            CH_Powers.OnPowerAcquired -= ShowPowerText;
-            CH_Powers.OnPowerUsed     -= PowerUsed;
+            CH_Powers.OnPowerAcquiredByPlayer -= ShowPowerText;
+            CH_Powers.OnPowerUsedByPlayer -= PowerUsed;
         }
         if (showPowerSelection)
-            CH_Powers.OnPowerUsed -= DeselectPowerSelectionToggles;
+            CH_Powers.OnPowerUsedByPlayer -= DeselectPowerSelectionToggles;
         StopCoroutine(FPSCoroutine());
     }
     void Awake()
     {
+        // Get player codes
         var player = GameObject.FindGameObjectWithTag("Player");
         if (player != null)
         {
@@ -60,9 +71,18 @@ public class UI_HUD : MonoBehaviour
         }
         else
             print("Player not found!");
+
+        // Race placing
+        placingText = new List<TextMeshProUGUI>();
+        if (placingPanelGO)
+        {
+            foreach (TextMeshProUGUI childText in placingPanelGO.GetComponentsInChildren<TextMeshProUGUI>())
+                placingText.Add(childText);
+        }
     }
     void Start()
     {
+        // FPS
         if(fpsTMP)
         {
             if (!showFPS)
@@ -70,13 +90,24 @@ public class UI_HUD : MonoBehaviour
             else
                 StartCoroutine(FPSCoroutine());
         }
+
+        // Powers
         if (!showCurrentPower && currentPowerTMP)
             currentPowerTMP.gameObject.transform.parent.gameObject.SetActive(false);
         if (!showPowerSelection && unlimiterPowerToggle)
         {
             unlimiterPowerToggle.gameObject.SetActive(false);
-            powerSelectionToggleGroup.gameObject.SetActive(false);
+            powerSelectionToggleGroup.transform.parent.gameObject.SetActive(false);
         }
+
+        // Place in race
+        if(!showRacePlacing)
+        {
+            if (placingPanelGO)
+                placingPanelGO.SetActive(false);
+        }
+
+        // Player displacement
         if (!showRotationMode)
         {
             if (autoRotationToggle && movementCode)
@@ -85,7 +116,6 @@ public class UI_HUD : MonoBehaviour
                 autoRotationToggle.isOn = movementCode.rotationMode == CH_Movement.MovementModes.Auto;
             }
         }
-        
         if (!showAccelerationMode)
         {
             if (autoAccelerationToggle && movementCode)
@@ -108,9 +138,9 @@ public class UI_HUD : MonoBehaviour
         var UISelected = EventSystem.current.currentSelectedGameObject;
         var toggleSelected = UISelected.GetComponent<Toggle>();
         if (toggleSelected.isOn)
-            CH_Powers.OnPowerAcquired?.Invoke((CH_Powers.Powers)powerNum);
+            CH_Powers.OnPowerAcquiredByPlayer?.Invoke((CH_Powers.Powers)powerNum);
         else
-            CH_Powers.OnPowerAcquired?.Invoke(CH_Powers.Powers.none);
+            CH_Powers.OnPowerAcquiredByPlayer?.Invoke(CH_Powers.Powers.none);
     }
     private void DeselectPowerSelectionToggles() => powerSelectionToggleGroup.SetAllTogglesOff();
 
@@ -138,8 +168,7 @@ public class UI_HUD : MonoBehaviour
     private void Toggles_SetPlayerRotationMode(CH_Movement.MovementModes mode)
     {
         movementCode.rotationMode = mode;
-        if (mode == CH_Movement.MovementModes.Auto)
-            movementCode.pathCreator.path.SetCharacterInPathFeatures(ref movementCode.pathFeatures, transform.position);
+        movementCode.RestartPathFeatures();
     }
 
 
@@ -152,5 +181,26 @@ public class UI_HUD : MonoBehaviour
         StartCoroutine(FPSCoroutine());
     }
     private void UpdateFPS() => fpsTMP.text = $"FPS: {fps}";
+
+
+    // -- -- -- RACE PLACING -- -- --
+  
+    public void UpdatePlacingInfo(List<int> descendingRaceOrder)
+    {
+        for (int i = 1; i < RaceManager.playerName.Count + 1; i++)
+        {
+            placingText[i - 1].text = $"{i}{(i > 3? "th": (i > 2 ? "rd" : (i > 1 ? "nd" : "st")))} place: {RaceManager.playerName[descendingRaceOrder[i - 1]]}";
+            if (RaceManager.playerName[descendingRaceOrder[i - 1]] == "Player")
+            {
+                placingText[i - 1].color = playerTextColor;
+                placingText[i - 1].fontStyle = FontStyles.Bold;
+            }
+            else
+            {
+                placingText[i - 1].color = regularTextColor;
+                placingText[i - 1].fontStyle = FontStyles.Normal;
+            }
+        }
+    }
 
 }

@@ -4,6 +4,7 @@ using UnityEngine;
 using PathCreation;
 using System;
 using MyBox;
+using UnityEngine.SceneManagement;
 
 /*  INSTRUCTIONS:
  *  Last full check: V0.3
@@ -15,148 +16,84 @@ using MyBox;
 [RequireComponent(typeof(Animator))]
 [RequireComponent(typeof(Rigidbody))]
 [RequireComponent(typeof(CapsuleCollider))]
-public class CH_Movement : MonoBehaviour
+public partial class CH_Movement : MonoBehaviour
 {
     // General moving fields
     public enum MovementModes { Auto, Manual }
     private Rigidbody rb;
     private Animator animator;
+    private CH_Data dataCode;
+
+    // General Path field
+    [HideInInspector] public float timeOnPath;
+    private PathCreator pathCreator;
+    private VertexPath.CharacterInPathFeatures pathFeatures;
 
     // Front movement fields
-    [Header("Front movement")]
     [Space(4)]
+    [Header("Front movement")] [Space(4)]
     public MovementModes accelerationMode;
-    [Range(1, 10)] public float frontMaxVel = 6;
+    [Range(5, 50)] public float frontMaxVel = 30;
     [HideInInspector] public float frontSpeed;
-    [HideInInspector] public bool moveTrigger, stopTrigger;
-    [Range(1, 10)][SerializeField] private float frontAcceleration = 2;
-    
-    private readonly float velScale = 5f;
+    [HideInInspector] public bool moveTrigger = false, stopTrigger;
+    [Range(5, 50)][SerializeField] private float frontAcceleration = 10;
     private bool isRunning;
     [Space(5)]
 
     // Rotation and side movement fields
-    [Header("Rotation and side movement")]
-    [Space(4)]
-    public MovementModes rotationMode;
-    [ConditionalField("rotationMode", true, MovementModes.Manual)] public EndOfPathInstruction endOfPathInstruction;
-    [ConditionalField("rotationMode", true, MovementModes.Manual)][Range(1, 10), SerializeField] private float SideVel = 3;
-    [HideInInspector] public PathCreator pathCreator;
-    [HideInInspector] public VertexPath.CharacterInPathFeatures pathFeatures;
+    [Header("Rotation and side movement")] [Space(4)]
+    public MovementModes rotationMode; 
     [HideInInspector] public bool movingRight, movingLeft;
-    [SerializeField] private bool showPathLogMessages;
-    private readonly int rotation = 120;
-    [Space(5)]
-
-    // Jumping fields
-    [Header("Jumping")]
-    [Space(4)]
-    [HideInInspector] public bool jumpTrigger;
-    [Range(1, 20)][SerializeField] private float jumpForce = 4;
-    private enum States { idle, anticipation, waitingRise, onAir, grounding }
-    private States sm = States.idle;
-    private CapsuleCollider capsuleColl;
-    private bool grounded, anticipationFinished, finishedGrounding, jumpConfirmationTO;
-    [Space(5)]
-
-    // Unstucking fields
-    [Header("Unstucking")]
-    [Space(4)]
-    [SerializeField] private GameObject unstuckCheckpointsParent;
-    private List<Vector3> unstuckCheckpointsPos;
+    [ConditionalField("rotationMode", true, MovementModes.Manual)] public EndOfPathInstruction endOfPathInstruction;
+    [ConditionalField("rotationMode", true, MovementModes.Manual)][Range(5, 30), SerializeField] private float SideVel = 3;
 
 
     // -- -- -- -- MONOBEHAVIOUR -- -- -- --
 
     void Awake()
     {
-        //find the components needed
-        rb = GetComponent<Rigidbody>();
-        //animator = GetComponent<Animator>();
+        // Find the components needed
+        rb          = GetComponent<Rigidbody>();
+        animator    = GetComponent<Animator>();
         capsuleColl = GetComponent<CapsuleCollider>();
+        dataCode    = GetComponent<CH_Data>();
         var pathCreatorGO = GameObject.Find("StaticObjects/Path");
+        print("move code awake");
         if (pathCreatorGO)
             pathCreator = pathCreatorGO.GetComponent<PathCreator>();
-        else
-            print("No path found on scene in the given file direction.");
-        
-        // disable the movement script until loading is complete.
-        enabled = false;
     }
+    private void OnDestroy() => GameManager.OnRaceStart -= LevelStart;
+    private void LevelStart() => enabled = true;
     void Start() 
     {
-        // Front movement start
-        if(pathCreator && rotationMode == MovementModes.Auto)
-        {
-            pathCreator.path.showLogMessages = showPathLogMessages;
-            pathCreator.path.SetCharacterInPathFeatures(ref pathFeatures, transform.position);
-            transform.SetPositionAndRotation(pathCreator.path.GetPoint(0), pathCreator.path.GetRotation(pathCreator.path.GetClosestTimeOnPath(transform.position), endOfPathInstruction));
-            moveTrigger = true;
-        }
-        StartCoroutine(RunninSync());
+        // For race placement management
+        SetPlayerRacePlacingData();
 
-        // Get unstuck check-points
-        unstuckCheckpointsPos = new List<Vector3>();
-        if (unstuckCheckpointsParent)
-        {
-            foreach (Transform checkpoint in unstuckCheckpointsParent.GetComponentsInChildren<Transform>())
-                unstuckCheckpointsPos.Add(checkpoint.position);
-        }
+        PositioningStart();
+        RestartPathFeatures();
+        StartCoroutine(RunninSync());
+        moveTrigger = (accelerationMode == MovementModes.Auto);
+        if (SceneManager.GetActiveScene().buildIndex != 1)
+            enabled = false; // disable the movement script until loading is complete.
+        if (SceneManager.GetActiveScene().buildIndex > 1)
+            GameManager.OnRaceStart += LevelStart;
     }
     void Update()
     {
         ForwarsMove_StatesMachine();
-        Jumping_StatesMachine();
+        JumpUpdate();
     }
     void FixedUpdate()
     {
-        // Rotation
+        if(pathCreator)
+            Positioning_FixedUpdate();
         PlayerRotation();
-
-        // Front and side movement
         if(moveTrigger)
             Move();
     }
 
 
-    #region ROTATION & UNSTUCK
-
-    /// <summary>
-    /// Set the rotation in both cases: automatic rotation and manual rotation.
-    /// </summary>
-    private void PlayerRotation()
-    {
-        if (rotationMode == MovementModes.Auto)
-        {
-            if (!pathFeatures.WaitingForPathRestart)
-                transform.rotation = pathCreator.path.GetRotation(pathCreator.path.GetClosestTimeOnPath(transform.position, ref pathFeatures), endOfPathInstruction);
-        }
-        else
-        {
-            if (movingRight)
-                transform.Rotate(new Vector3(0, rotation * Time.fixedDeltaTime, 0));
-            else if (movingLeft)
-                transform.Rotate(new Vector3(0, -rotation * Time.fixedDeltaTime, 0));
-        }
-    }
-
-    /// <summary>
-    /// Un-stuck the player by taking it to the closest un-stuck checkpoint. Also re-organize tha player in the auto-path in case of automatic rotation mode.
-    /// </summary>
-    public void Unstuck()
-    {
-        if(unstuckCheckpointsParent)
-        {
-            transform.position = MyTools.MyMath.CalculateClosestPoint(transform.position, unstuckCheckpointsPos);
-            if (accelerationMode == MovementModes.Auto)
-                pathCreator.path.SetCharacterInPathFeatures(ref pathFeatures, transform.position);
-        }
-    }
-
-    #endregion
-
-
-    #region FORWARD MOVEMENT
+    // -- -- -- --  MAIN MOVEMENT FUNCTIONS  -- -- -- --
 
     /// <summary>
     /// Update trigger value if acceleration on manual mode.
@@ -190,8 +127,6 @@ public class CH_Movement : MonoBehaviour
         }
     }
 
-    private void SetRunningAnimation(bool enable) => animator.SetBool("Running", enable);
-
     /// <summary> 
     /// Applies all the movements for the player except for the rotation and the jumping that has their own function; Applies the forward and side movement withount interrumpting the jumping movement.
     /// </summary>
@@ -201,19 +136,20 @@ public class CH_Movement : MonoBehaviour
 
         // Set side velocity, but only apply it in case of automatic rotation.
         Vector3 sideVel = Vector3.zero;
+
         if (rotationMode == MovementModes.Auto)
         {
             if (movingRight)
-                sideVel = 50f * SideVel * Time.fixedDeltaTime * velScale * playerTf.right;
+                sideVel = 50f * SideVel * Time.fixedDeltaTime * playerTf.right;
             else if (movingLeft)
-                sideVel = 50f * SideVel * Time.fixedDeltaTime * velScale * -playerTf.right;
+                sideVel = 50f * SideVel * Time.fixedDeltaTime * -playerTf.right;
         }
 
         // Set forward velocity with an accelerated movement
-        if ((frontSpeed + (frontAcceleration * velScale * Time.fixedDeltaTime)) < (frontMaxVel * velScale))
-            frontSpeed += frontAcceleration * velScale * Time.fixedDeltaTime;
+        if ((frontSpeed + (frontAcceleration * Time.fixedDeltaTime)) < frontMaxVel)
+            frontSpeed += frontAcceleration * Time.fixedDeltaTime;
         else
-            frontSpeed = frontMaxVel * velScale;
+            frontSpeed = frontMaxVel;
         Vector3 frontVel = playerTf.forward * frontSpeed;
 
         // Get the jumping velocity to continue it's movement without interrumpting it.
@@ -223,12 +159,37 @@ public class CH_Movement : MonoBehaviour
         rb.velocity = frontVel + jumpVel + sideVel;
     }
 
-    private void Stop()
+    public void Stop()
     {
         // Note: Might has it's animation and more stuff in further versions.
+        moveTrigger = false;
         frontSpeed = 0;
         SetRunningAnimation(false);
     }
+
+    /// <summary>
+    /// Set the rotation in both cases: automatic rotation and manual rotation.
+    /// </summary>
+    private void PlayerRotation()
+    {
+        if (rotationMode == MovementModes.Auto)
+        {
+            if (!pathFeatures.WaitingForPathRestart)
+                transform.rotation = pathCreator.path.GetRotation(timeOnPath, endOfPathInstruction);
+        }
+        else
+        {
+            if (movingRight)
+                transform.Rotate(new Vector3(0, 120 * Time.fixedDeltaTime, 0));
+            else if (movingLeft)
+                transform.Rotate(new Vector3(0, -120 * Time.fixedDeltaTime, 0));
+        }
+    }
+
+
+    // -- -- -- -- ANIMATION MANAGEMENT -- -- -- --
+
+    private void SetRunningAnimation(bool enable) => animator.SetBool("Running", enable);
 
     /// <summary>
     /// Sets the running animation frame rate .
@@ -238,7 +199,7 @@ public class CH_Movement : MonoBehaviour
         if (animator.GetBool("Running"))
         {
             //Get the actual front speed of the player and map it to the animation speed values
-            float forwardSpeed = MyTools.MyMath.Map(frontSpeed, 0.1f, frontMaxVel * velScale, 0, 1f);
+            float forwardSpeed = MyTools.MyMath.Map(frontSpeed, 0.1f, frontMaxVel, 0, 1f);
 
             //limit the maxim vel if surpassed the max animation speed values, but this should never happen.
             if (forwardSpeed > 1)
@@ -262,136 +223,47 @@ public class CH_Movement : MonoBehaviour
         StartCoroutine(RunninSync());
     }
 
-    #endregion
 
+    // -- -- -- -- PATH AND RACE PLACING RELATED -- -- -- --
 
-    #region JUMPING
-
-    /// <summary>
-    /// This function is called when the jump anticipation animation is completed.
-    /// </summary>
-    public void AnticipationAnimDone() => anticipationFinished = true;
-
-    /// <summary>
-    /// This function is called when the jump recovery animation is completed
-    /// </summary>
-    public void JumpFinished() => finishedGrounding = true;
-
-    /// <summary>
-    /// For better understanding see documentation.
-    /// </summary>
-    private void Jumping_StatesMachine()
+    public void RestartPathFeatures()
     {
-        CheckGround();
+        if (accelerationMode == MovementModes.Auto)
+            pathCreator.path.SetCharacterInPath(ref pathFeatures, transform.position);
+    }
 
-        // Got to the 'OnAir' state in any ground state if the player is not touching the ground
-        if (sm != States.onAir)
+    private void SetPlayerRacePlacingData()
+    {
+        RaceManager raceManager = null;
+        var raceManagerGO = GameObject.Find("Race");
+        if (raceManagerGO)
+            raceManager = raceManagerGO.GetComponent<RaceManager>();
+            
+        if (raceManager)
         {
-            if(!grounded)
-            {
-                StopCoroutine(JumpComfirmationTimer());
-                sm = States.onAir;
-                //print($"Jump state: {sm}");
+            var chData = GetComponent<CH_Data>();
+            if (chData == null)
                 return;
+
+            var playerName = chData.playerName;
+            playerName = playerName.Trim();
+
+            if (!dataCode.imPlayer)
+            {
+                if (playerName != "")
+                    raceManager.competitors.Add(new RaceManager.Competitor(rb, playerName, this));
+                else
+                    raceManager.competitors.Add(new RaceManager.Competitor(rb, $"Bot #{raceManager.competitors.Count + 1}", this));
+                dataCode.playerNumber = raceManager.competitors.Count;
+            }
+            else
+            {
+                if (playerName != "")
+                    raceManager.competitors.Insert(0, new RaceManager.Competitor(rb, playerName, this));
+                else
+                    raceManager.competitors.Insert(0, new RaceManager.Competitor(rb, "Player", this));
             }
         }
-
-        switch (sm)
-        {
-            case States.idle:
-                if (jumpTrigger)
-                {
-                    JumpAnticipation();
-                    sm = States.anticipation;
-                    //print($"Jump state: {sm}");
-                }
-                break;
-
-            case States.anticipation:
-                if (anticipationFinished)
-                {
-                    anticipationFinished = false;
-                    Jump();
-                    sm = States.waitingRise;
-                    //print($"Jump state: {sm}");
-                    StartCoroutine(JumpComfirmationTimer());
-                }
-                break;
-
-            case States.waitingRise:
-                if(jumpConfirmationTO)
-                {
-                    jumpConfirmationTO = false;
-                    sm = States.idle;
-                    //print($"Jump state: {sm}");
-                }
-                break;
-
-            case States.onAir:
-                if (grounded)
-                {
-                    sm = States.grounding;
-                    //print($"Jump state: {sm}");
-                    Grounding();
-                }
-                break;
-
-            case States.grounding:
-                if (finishedGrounding)
-                {
-                    finishedGrounding = false;
-                    jumpTrigger = false; // this won't allow unwanted jump when landing
-                    sm = States.idle;
-                    //print($"Jump state: {sm}");
-                }
-                break;
-        }
     }
-
-    /// <summary>
-    /// Anticipation animation of the jumping. Calls the 'AnticipationAnimDone()' function when the animation is done.
-    /// </summary>
-    private void JumpAnticipation()
-    {
-        animator.SetBool("Grounded", false);
-        animator.SetTrigger("JumpTrigger");
-    }
-
-    private void Jump()
-    {
-        int jumpMultiple = 500;
-        rb.AddForce(jumpForce * jumpMultiple * transform.up, ForceMode.Impulse);
-        animator.Play("Jump");
-        animator.SetBool("Grounded", false);
-    }
-
-    private void CheckGround()
-    {
-        var col = capsuleColl;
-        Vector3 centerOfSphere1 = transform.position + Vector3.up * col.radius;
-        grounded = Physics.SphereCast(centerOfSphere1, col.radius, Vector3.down, out RaycastHit hit, 0.1f);
-    }
-
-    /// <summary>
-    /// Enables the animation of the grounding. makes true the variable 'finishedGrounding' when the animation is done so it won't be any jumping attempt while the animation is playing.
-    /// </summary>
-    private void Grounding()
-    {
-        animator.Play("JumpRec");
-        animator.SetBool("Grounded", true);
-    }
-
-    /// <summary>
-    /// Short timer to know if the jump attemp turn into a propper jump, if this does not happen then we should turn back to the idle state of jumping.
-    /// </summary>
-    private IEnumerator JumpComfirmationTimer()
-    {
-        jumpConfirmationTO = false;
-        yield return new WaitForSeconds(0.2f);
-        yield return null;
-        jumpConfirmationTO = true;
-    }
-
-    #endregion
 
 }

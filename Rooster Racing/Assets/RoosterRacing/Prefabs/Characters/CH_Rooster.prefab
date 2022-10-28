@@ -208,13 +208,13 @@ GameObject:
   - component: {fileID: 8614015295094612503}
   - component: {fileID: 202349648476285242}
   - component: {fileID: 5437320077830654830}
+  - component: {fileID: 4693526757788148606}
   - component: {fileID: 870960774556007924}
-  - component: {fileID: 31498898495663407}
   - component: {fileID: 708650654857356503}
   - component: {fileID: 6794916963635981606}
   m_Layer: 8
   m_Name: CH_Rooster
-  m_TagString: Player
+  m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -288,6 +288,18 @@ Animator:
   m_HasTransformHierarchy: 1
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorControllerStateOnDisable: 0
+--- !u!114 &4693526757788148606
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1042145387473432860}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 13d3d8936545df342bd1dce031952ee2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!114 &870960774556007924
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -300,31 +312,24 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f75bd6a8fadca544a9b291019a67b7f8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  rotationMode: 0
-  frontMovementMode: 0
-  frontMaxVel: 6
-  frontAcceleration: 5
-  frontVel: 0
-  SideVel: 3
-  sideMove: 0
+  jumpTrigger: 0
+  jumpForce: 4
+  unstuckCheckpointsParent: {fileID: 0}
+  playerName: 
+  timeOnPath: 0
   pathCreator: {fileID: 0}
-  endOfPathInstruction: 0
+  showPathLogMessages: 0
+  accelerationMode: 0
+  frontMaxVel: 30
+  frontSpeed: 0
   moveTrigger: 0
   stopTrigger: 0
---- !u!114 &31498898495663407
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1042145387473432860}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 236d8d9ef64e35443b7f163a66c4c34d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  jumpForce: 4.1
-  jumpTrigger: 0
+  frontAcceleration: 10
+  rotationMode: 0
+  movingRight: 0
+  movingLeft: 0
+  endOfPathInstruction: 0
+  SideVel: 15
 --- !u!114 &708650654857356503
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -337,10 +342,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dcb7d7250f37e1e4b89efc9fd7b9756a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  currentPower: 0
   unlimitedPower: 1
-  actualPower: 0
-  withPower: 0
-  powerTrigger: 0
   eggTrow_Force: 60
   tackleForce: 3500
   alwaysTackle: 0
@@ -359,8 +362,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4712f53ad23a2aa4195184220218865f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  pushForce: 1000
-  holeDelay: 1
 --- !u!1 &1295547784998225366
 GameObject:
   m_ObjectHideFlags: 0

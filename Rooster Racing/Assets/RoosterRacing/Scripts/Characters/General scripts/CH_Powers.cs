@@ -15,13 +15,15 @@ using System;
 public class CH_Powers : MonoBehaviour
 {
     //Powers in general fields
-    public delegate void PowerAcquiredDelegate(Powers powerAcquired);
-    public static PowerAcquiredDelegate OnPowerAcquired;
-    public delegate void PowerUsedDelegate();
-    public static PowerUsedDelegate OnPowerUsed;
+    public delegate void PowerDelegateWithParam(Powers power);
+    public delegate void PowerDelegate();
+    public PowerDelegate OnPowerAcquired;
+    public static PowerDelegateWithParam OnPowerAcquiredByPlayer;
+    public static PowerDelegate OnPowerUsedByPlayer;
     public enum Powers { none, eggSet, eggThrow, tackle }
     [HideInInspector] public Powers currentPower;
-    [HideInInspector] public bool unlimitedPower, powerTrigger;
+    [HideInInspector] public bool unlimitedPower = false;
+    private PowerDelegate OnPowerUsed;
     private bool usingPower;
     
     //Egg set fields
@@ -45,36 +47,52 @@ public class CH_Powers : MonoBehaviour
     private Rigidbody rb;
     private CH_Movement moveCode;
     private Animator animator;
+    private CH_Data playerData;
 
 
     #region Monobehaviour
 
     void Awake()
     {
-        //find the game objects needed
-        eggThrow_Pref = Resources.Load<GameObject>("Prefabs/LevelDev/EggThrowed");
-        eggSetPref = Resources.Load<GameObject>("Prefabs/LevelDev/EggSet");
-        tacklers = transform.Find("Tacklers").gameObject;
-        playerDetectors = transform.Find("PlayerDetectors").gameObject;
-
         //find the components needed
-        moveCode = GetComponent<CH_Movement>();
-        rb = GetComponent<Rigidbody>();
-        animator = GetComponent<Animator>();
+        playerData = GetComponent<CH_Data>();
+        moveCode   = GetComponent<CH_Movement>();
+        rb         = GetComponent<Rigidbody>();
+        animator   = GetComponent<Animator>();
+
+        //find the game objects needed
+        eggThrow_Pref   = Resources.Load<GameObject>("Prefabs/InteractiveObjects/EggThrowed");
+        eggSetPref      = Resources.Load<GameObject>("Prefabs/InteractiveObjects/EggSet");
+        tacklers        = transform.Find("Tacklers").gameObject;
+        playerDetectors = transform.Find("PlayerDetectors").gameObject;
     }
-    void OnEnable()
+    void OnDestroy()
     {
-        OnPowerAcquired += NewPower;
-        OnPowerUsed += PowerUsed;
-    }
-    void OnDisable()
-    {
-        OnPowerAcquired -= NewPower;
-        OnPowerUsed -= PowerUsed;
+        if (playerData.imPlayer)
+        {
+            OnPowerAcquiredByPlayer -= NewPower;
+            //OnPowerUsedByPlayer     -= PowerUsed;
+        }
+        else
+        {
+            OnPowerAcquired -= NewPower;
+            OnPowerUsed     -= PowerUsed;
+        }
     }
     
     void Start()
     {
+        if (playerData.imPlayer)
+        {
+            OnPowerAcquiredByPlayer += NewPower;
+            //OnPowerUsedByPlayer += PowerUsed;
+        }
+        else
+        {
+            OnPowerAcquired += NewPower;
+            OnPowerUsed += PowerUsed;
+        }
+
         //Tackle colliders disabled at the beginning of the game
         tacklers.SetActive(false);
         if(!unlimitedPower)
@@ -109,8 +127,26 @@ public class CH_Powers : MonoBehaviour
                 EggSet();
                 break;
         }
+
+        if(currentPower != Powers.eggThrow)
+            OnPowerUsed?.Invoke();
     }
-    private void NewPower(Powers power) => currentPower = power;
+
+    private void NewPower()
+    {
+        var power = (Powers)UnityEngine.Random.Range(0, Enum.GetNames(typeof(Powers)).Length);
+        NewPower(power);
+    }
+
+    private void NewPower(Powers power)
+    {
+        currentPower = power;
+
+        // if got the tackle power, activate the player detectors needed for the tackle power
+        if (currentPower == Powers.tackle)
+            playerDetectors.SetActive(true);
+    }
+
     private void PowerUsed()
     {
         usingPower = false;
@@ -118,6 +154,8 @@ public class CH_Powers : MonoBehaviour
             return;
         currentPower = Powers.none;
 
+        if (playerData.imPlayer)
+            OnPowerUsedByPlayer?.Invoke();
     }
     #endregion
 
@@ -132,7 +170,6 @@ public class CH_Powers : MonoBehaviour
         //power
         Vector3 eggSetInitialPos = Vector3.Scale(eggSet_IniDir, transform.forward) + new Vector3(0, eggSet_IniDir.y, 0);
         Instantiate(eggSetPref, transform.position + eggSetInitialPos, Quaternion.identity);
-        OnPowerUsed?.Invoke();
     }
 
     #endregion
@@ -155,8 +192,6 @@ public class CH_Powers : MonoBehaviour
         //throw that egg backward
         eggThrow.GetComponent<Rigidbody>().AddForce(-transform.forward * eggTrow_Force, ForceMode.VelocityChange);
 
-        OnPowerUsed?.Invoke();
-
         //Destroy the egg afther some time
         Destroy(eggThrow, eggLifetime);
     }
@@ -170,13 +205,9 @@ public class CH_Powers : MonoBehaviour
     {
         //Check if it can tackle based on the playersNearby, if not then return to the idle state
         if( !enemyOnRightSide && !enemyOnLeftSide )
-        {
             usingPower = true;
-        }
         else
-        {
             TackleAnticipation();
-        }
     }
 
     //Set the tackle side and play the tackle anticipation animation
@@ -184,13 +215,9 @@ public class CH_Powers : MonoBehaviour
     {
         //Set the side to tackle based on the playersNearby
         if( enemyOnRightSide && !enemyOnLeftSide)
-        {
             tackleSide = Sides.right;
-        }
         else if ( !enemyOnRightSide && enemyOnLeftSide)
-        {
             tackleSide = Sides.left;
-        }
         else
         {
             if(moveCode.movingRight)
@@ -224,13 +251,9 @@ public class CH_Powers : MonoBehaviour
 
         // Add the tackle force
         if(tackleSide == Sides.right)
-        {
             rb.AddForce(transform.right * tackleForce, ForceMode.Impulse);
-        } 
         else
-        {
             rb.AddForce(-transform.right * tackleForce, ForceMode.Impulse);
-        }
 
         // Play a timer for the tackle ending
         Invoke("FinishTackling", tackleTO);
@@ -243,16 +266,9 @@ public class CH_Powers : MonoBehaviour
 
         //change the animation parameter for entering the recovery animation
         if(tackleSide == Sides.right)
-        {
             animator.Play("TackleR_Rec");
-        }
         else
-        {
             animator.Play("TackleL_Rec");
-        }
-
-        //return to the idle state and lose the power
-        OnPowerUsed?.Invoke();
     }
 
     #endregion

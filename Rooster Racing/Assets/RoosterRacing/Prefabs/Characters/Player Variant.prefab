@@ -271,6 +271,11 @@ PrefabInstance:
       propertyPath: acceleration
       value: 15
       objectReference: {fileID: 0}
+    - target: {fileID: 870960774556007924, guid: abf516ce3d6128a43bdba240c9da4dbc,
+        type: 3}
+      propertyPath: frontAcceleration
+      value: 20
+      objectReference: {fileID: 0}
     - target: {fileID: 988278923700111766, guid: abf516ce3d6128a43bdba240c9da4dbc,
         type: 3}
       propertyPath: maxV
@@ -285,6 +290,11 @@ PrefabInstance:
         type: 3}
       propertyPath: m_Name
       value: Player Variant
+      objectReference: {fileID: 0}
+    - target: {fileID: 1042145387473432860, guid: abf516ce3d6128a43bdba240c9da4dbc,
+        type: 3}
+      propertyPath: m_TagString
+      value: Player
       objectReference: {fileID: 0}
     - target: {fileID: 1563915104991502049, guid: abf516ce3d6128a43bdba240c9da4dbc,
         type: 3}

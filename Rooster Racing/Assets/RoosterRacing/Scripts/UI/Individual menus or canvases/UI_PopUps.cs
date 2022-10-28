@@ -23,6 +23,7 @@ public class UI_PopUps : UI_MenuManager
         OpenMenu(instance.gameObject.transform.GetChild(0).gameObject, false);
         instance.screenMessage.text = message;
     }
+
     /// <summary>
     /// Close the pop-up message canvas.
     /// </summary>

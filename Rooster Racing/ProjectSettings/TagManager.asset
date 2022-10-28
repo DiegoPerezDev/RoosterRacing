@@ -11,6 +11,8 @@ TagManager:
   - EggThrowed
   - TackleL
   - TackleR
+  - Wall
+  - RaceEnd
   layers:
   - Default
   - TransparentFX

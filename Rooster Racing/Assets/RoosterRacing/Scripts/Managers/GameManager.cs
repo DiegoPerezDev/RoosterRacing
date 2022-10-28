@@ -32,9 +32,8 @@ public class GameManager : MonoBehaviour
     // Level management
     public delegate void LevelDelegate();
     public delegate void LevelPauseDelegate(bool pausing);
-    public static LevelDelegate OnLevelStart, OnLoseGame, OnWinGame;
+    public static LevelDelegate OnLevelStart, OnRaceStart, OnLoseGame, OnWinGame;
     public static LevelPauseDelegate OnLevelPauseByFreezing;
-    private CH_Movement playerMovement;
 
     // Data saving
     public delegate void SavingDataDelegate();
@@ -56,16 +55,12 @@ public class GameManager : MonoBehaviour
     void OnEnable()
     {
         InputsManager.SetInputManager();
-        OnSceneLoaded += UnpauseDelegateCall;
-        OnLevelStart  += LevelStart;
         OnLoseGame    += LoseGame;
         OnWinGame     += WinGame;
         OnPauseByTime += PauseByTime;
     }
     private void OnApplicationQuit()
     {
-        OnSceneLoaded -= UnpauseDelegateCall;
-        OnLevelStart  -= LevelStart;
         OnLoseGame    -= LoseGame;
         OnWinGame     -= WinGame;
         OnPauseByTime -= PauseByTime;
@@ -118,6 +113,7 @@ public class GameManager : MonoBehaviour
     private static IEnumerator StartScene(int sceneIndex)
     {
         float minDelay = 0.2f, timer = 0f;
+        PauseByTime(false); // Time should always work when using the Time Class
 
         // First time entering the scene:
         //  - Dont re-load the scene if we are just opening the game.
@@ -136,7 +132,7 @@ public class GameManager : MonoBehaviour
 
         // Load scene
         if (instance.printTransitionStates)
-            print("Loading scene... Entering desired scene. (1/2)");
+            print("Loading scene... Entering desired scene. (1/3)");
         AsyncOperation loadingOperation = SceneManager.LoadSceneAsync(sceneIndex);
         timer = 0f;
         while (!loadingOperation.isDone && (timer < minDelay))
@@ -145,11 +141,21 @@ public class GameManager : MonoBehaviour
             timer += Time.deltaTime;
         }
         if (instance.printTransitionStates)
-            print("Loading completed. Scene started! (2/2)");
+            print("Loading completed. Scene started! (2/3)");
 
         // Start the scene
-        LoadedScene:
+    LoadedScene:
+        timer = 0f;
+        while (timer < minDelay)
+        {
+            yield return null;
+            timer += Time.deltaTime;
+        }
+        if (instance.printTransitionStates && !firstGameLoadSinceExecution)
+            print("Scene started! (3/3)");
         OnSceneLoaded?.Invoke();
+
+        // Start level
         if (SceneManager.GetActiveScene().buildIndex != 0)
             OnLevelStart?.Invoke();
         //InputsManager.EnableMenuActionMaps();
@@ -169,35 +175,20 @@ public class GameManager : MonoBehaviour
         else
             Time.timeScale = 1;
     }
-    private void UnpauseDelegateCall() => OnPauseByTime?.Invoke(false);
 
 
     // -- -- -- -- Level events -- -- -- --
-    private void LevelStart()
-    {
-        var playerGO = GameObject.FindGameObjectWithTag("Player");
-        if (playerGO)
-        {
-            playerMovement = playerGO.GetComponent<CH_Movement>();
-            if (playerMovement)
-                playerMovement.enabled = true;
-        }
-        else
-            print("Player not found");
-    }
     private static void LoseGame()
     {
         OnLevelPauseByFreezing?.Invoke(true);
         instance.StopAllCoroutines();
         //SaveHighScore();
-        EnterScene(0, 3f);
     }
     private static void WinGame()
     {
         OnLevelPauseByFreezing?.Invoke(true);
         instance.StopAllCoroutines();
         //SaveHighScore();
-        EnterScene(0, 3f);
     }
 
 }
