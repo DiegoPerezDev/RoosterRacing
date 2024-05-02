@@ -6,7 +6,7 @@ using UnityEngine;
  *  Last full check: V0.3
  *  The main UI script for every level scene. This should be attached in the parent UI gameObject.
  */
-public class UI_Level : UI_MainMenuManager
+public class UI_Level : UI_Manager
 {
     [SerializeField] private GameObject HUD;
     //[HideInInspector] public enum UI_AudioNames { lose, pause, unPause }

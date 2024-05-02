@@ -6,10 +6,10 @@ using UnityEngine;
  *  Last full check: V0.3
  *  This code manages what happens in the pause menu canvas.
  */
-public class UI_PauseMenu : UI_MenuManager
+public class UI_PauseMenu : UI_Menu
 {
     [SerializeField] private GameObject pauseMenu, settingsMenu, inputsMenu, exitMenu;
-    [SerializeField] private CH_Movement playerMoveCode;
+    private CH_Movement playerMoveCode;
     
 
     void OnEnable() =>

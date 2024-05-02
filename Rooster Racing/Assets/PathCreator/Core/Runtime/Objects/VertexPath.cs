@@ -517,7 +517,7 @@ namespace PathCreation {
             }
         }
 
-        private int GetPlayerCurrentPointOnPath(Vector3 worldPoint)
+        public int GetPlayerCurrentPointOnPath(Vector3 worldPoint)
         {
             float minSqrDst = float.MaxValue;
             int closestSegmentIndexA = 0;

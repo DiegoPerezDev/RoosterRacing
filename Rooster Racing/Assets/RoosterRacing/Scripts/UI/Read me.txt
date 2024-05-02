@@ -1,0 +1,11 @@
+UI scripts divided by:
+
+Bases: All UI scripts derives from these two except if they are UI displayed while playing, like the HUD.
+	The UI scripts that manages an specific menu derive from the script 'UI_Menu'
+	and those who manage the behaviour of the UI in a whole scene derive from 'UI_Managers' 
+
+Debug: Scripts only implemented for build debug, never on a finished version.
+ 
+Menus: Scripts that manages individual menus, most inherit from 'UI_Menu' base class.
+
+Scene managers: Scripts that manages the behaviour of the UI in a whole scene. All of these derive from 'UI_Managers'.

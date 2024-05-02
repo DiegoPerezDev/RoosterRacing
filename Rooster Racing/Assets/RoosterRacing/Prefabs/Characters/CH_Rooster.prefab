@@ -228,7 +228,7 @@ Transform:
   m_GameObject: {fileID: 1042145387473432860}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 0.35, y: 0.35, z: 0.35}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1536654972950167263}
@@ -300,6 +300,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 13d3d8936545df342bd1dce031952ee2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  playerName: 
+  playerNumber: 0
+  imPlayer: 0
 --- !u!114 &870960774556007924
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -312,13 +315,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f75bd6a8fadca544a9b291019a67b7f8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  jumpTrigger: 0
   jumpForce: 4
-  unstuckCheckpointsParent: {fileID: 0}
-  playerName: 
-  timeOnPath: 0
-  pathCreator: {fileID: 0}
+  jumpTrigger: 0
   showPathLogMessages: 0
+  timeOnPath: 0
   accelerationMode: 0
   frontMaxVel: 30
   frontSpeed: 0
@@ -362,6 +362,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4712f53ad23a2aa4195184220218865f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  invulnerable: 0
 --- !u!1 &1295547784998225366
 GameObject:
   m_ObjectHideFlags: 0

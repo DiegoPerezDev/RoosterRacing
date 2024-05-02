@@ -6,7 +6,7 @@ using UnityEngine;
  *  Last full check: V0.3
  *  This code manages what happens in the main menu canvas, for the whole scene UI management there is another script called 'UI_LevelSelection'.
  */
-public class UI_MainMenu : UI_MenuManager
+public class UI_MainMenu : UI_Menu
 {
     [SerializeField] private GameObject mainMenu, settingsMenu, exitMenu, inputsMenu;
 

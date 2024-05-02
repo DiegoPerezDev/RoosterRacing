@@ -6,7 +6,7 @@ using UnityEngine;
  *  Last full check: V0.3
  *  The main UI script for the Level selection scene. This should be attached in the parent UI gameObject.
  */
-public class UI_LevelSelection : UI_MainMenuManager
+public class UI_LevelSelection : UI_Manager
 {
     /// <summary>
     /// <para>Check if we need to return to the previous menu or close the current menu and unpause the game.</para>

@@ -8,7 +8,7 @@ using System.Linq;
  * Base class of the menus of the game.
  * All the UI scripts for each canvas GameObject should derive from this class for the opening and closing of the menus.
  */
-public class UI_MenuManager : MonoBehaviour
+public class UI_Menu : MonoBehaviour
 {
     protected static List<GameObject> openedMenus;
     protected static AudioClip buttonAudioClip;

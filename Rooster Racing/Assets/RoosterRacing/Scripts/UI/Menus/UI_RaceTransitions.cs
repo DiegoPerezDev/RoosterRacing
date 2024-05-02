@@ -7,7 +7,7 @@ using TMPro;
  *  Last full check: V...
  *  This script ...
  */
-public class UI_RaceTransitions : UI_MenuManager
+public class UI_RaceTransitions : UI_Menu
 {
     [SerializeField] private GameObject startCanvas, endCanvas;
     [SerializeField] private TextMeshProUGUI startCountDownText, winLoseText, positionsText;

@@ -58,11 +58,10 @@ public partial class CH_Movement : MonoBehaviour
         capsuleColl = GetComponent<CapsuleCollider>();
         dataCode    = GetComponent<CH_Data>();
         var pathCreatorGO = GameObject.Find("StaticObjects/Path");
-        print("move code awake");
         if (pathCreatorGO)
             pathCreator = pathCreatorGO.GetComponent<PathCreator>();
     }
-    private void OnDestroy() => GameManager.OnRaceStart -= LevelStart;
+    void OnDestroy() => GameManager.OnRaceStart -= LevelStart;
     private void LevelStart() => enabled = true;
     void Start() 
     {

@@ -8,7 +8,7 @@ using TMPro;
  *  This script enables and disables pop-up messages in the game, also can display specific messages in them.
  *  For now it's used for showing the "In Development" message for the not implemented levels in the level selection.
  */
-public class UI_PopUps : UI_MenuManager
+public class UI_PopUps : UI_Menu
 {
     [SerializeField] private TextMeshProUGUI screenMessage;
     private static UI_PopUps instance;

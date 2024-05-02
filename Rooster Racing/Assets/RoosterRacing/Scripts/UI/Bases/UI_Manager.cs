@@ -6,9 +6,9 @@ using UnityEngine;
  * Last full check: V0 .3
  * Base class of the menu management of the scenes in the game.
  * Get assets and data used between all UI scripts in this one.
- * There is a class that derives from 'UI_MainMenuManager' for the levels and another for the main menu or other different scene type.
+ * There is a class that derives from 'UI_Manager' for the levels and another for the main menu or other different scene type.
  */
-public class UI_MainMenuManager : UI_MenuManager
+public class UI_Manager : UI_Menu
 {
     public virtual void Awake()
     {

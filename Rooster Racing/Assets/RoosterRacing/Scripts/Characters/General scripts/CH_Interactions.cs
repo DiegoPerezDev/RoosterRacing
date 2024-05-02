@@ -12,8 +12,8 @@ using System;
 public class CH_Interactions : MonoBehaviour
 {
     //General fields
+    [HideInInspector] public bool invulnerable;
     private enum Tags { Untagged, none, PowerUp, EggSet, EggThrowed, Hole, Teleporter, TackleL, TackleR, Wall, RaceEnd}
-    private bool invulnerable;
     private bool isPlayer;
 
     //Powers
@@ -25,6 +25,8 @@ public class CH_Interactions : MonoBehaviour
     private List<GameObject> holesGO, wallsGO;
     private List<Vector3> afterHolePos, afterWallPos;
     private IEnumerator ObstacleCoroutine;
+
+    
 
     //General components fields
     private Rigidbody rb;
@@ -52,6 +54,7 @@ public class CH_Interactions : MonoBehaviour
 
     void Start()
     {
+        // For obstacles positioning after debuff
         SetHolesTpPos();
         SetWallsTpPos();
     }
@@ -302,5 +305,7 @@ public class CH_Interactions : MonoBehaviour
     }
 
     #endregion
+
+    
 
 }
